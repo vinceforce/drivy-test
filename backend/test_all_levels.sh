@@ -1,0 +1,10 @@
+cd level1
+ruby main.rb
+cd ../level2
+ruby main.rb
+cd ../level3
+ruby main.rb
+cd ../level4
+ruby main.rb
+cd ../level5
+ruby main.rb
