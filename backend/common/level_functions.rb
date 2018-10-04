@@ -19,11 +19,11 @@ def commission_compute(price, duration)
 	insurance_fee = (price_30 * 0.5).round(0)
 	assistance_fee = 100 * duration # rental prices are given in cents, 1 € = 100 cts
 	drivy_fee = (price_30 - insurance_fee - assistance_fee).round(0)
-	return {
-			"insurance_fee" => insurance_fee,
-			"assistance_fee" => assistance_fee,
-			"drivy_fee" => drivy_fee
-			}
+	{
+		"insurance_fee" => insurance_fee,
+		"assistance_fee" => assistance_fee,
+		"drivy_fee" => drivy_fee
+	}
 end
 
 def actions_compute(price, commission, owner_options_amount, drivy_options_amount)
@@ -58,7 +58,110 @@ def actions_compute(price, commission, owner_options_amount, drivy_options_amoun
 	return actions
 end
 
-def rental_output(f_input, f_output, f_expected_output, level, options_day_prices)
+def options_compute(rental_id)
+	rental_options = @options.select { |o| o["rental_id"] == @rental_id }
+	owner_options = rental_options.select { |o| o["type"] == "gps" or o["type"] == "baby_seat" }
+	owner_options_amount = owner_options.inject(0) {
+			|sum, o| sum + @duration * @options_day_prices[o["type"]]
+		}
+	drivy_options = rental_options.select { |o| o["type"] == "additional_insurance" }
+	drivy_options_amount = drivy_options.inject(0) {
+			|sum, o| sum + @duration * @options_day_prices[o["type"]]
+		}
+	options_output = rental_options.map {|o| o["type"]}
+	{
+		:owner_options_amount => owner_options_amount,
+		:drivy_options_amount => drivy_options_amount,
+		:options_output => options_output
+	}
+end
+
+class CarRentalPrice
+	def initialize(cars, r, options, options_day_prices)
+		@cars = cars
+		@rental = r
+		@options = options
+		@options_day_prices = options_day_prices
+		@rental_id = @rental["id"]
+		@duration = (Date.parse(@rental["end_date"]) - Date.parse(@rental["start_date"])).to_i + 1
+		@distance = @rental["distance"].to_i
+		@car_id = @rental["car_id"]
+		@car = @cars.find {|c| c["id"] == @car_id}
+		@price_per_day = @car["price_per_day"].to_i
+		@price_per_km = @car["price_per_km"].to_i
+
+	end
+
+	def price_days
+		@duration * @price_per_day
+	end
+
+	def price_distance
+		@distance * @price_per_km
+	end
+
+	def price
+		price_days + price_distance
+	end
+
+	def output
+		{ "id" => @rental_id, "price" => self.price() }
+	end
+end
+
+class CarRentalPriceLevel1 < CarRentalPrice
+end
+
+class CarRentalPriceLevel2 < CarRentalPrice
+	def price_days
+		price_days_compute(@duration, @price_per_day)
+	end
+end
+
+class CarRentalPriceLevel3 < CarRentalPriceLevel2
+	def commission
+		commission_compute(price, @duration)
+	end
+
+	def output
+		{ "id" => @rental_id, "price" => price , "commission" => commission}
+	end
+end
+
+class CarRentalPriceLevel4 < CarRentalPriceLevel3
+	def actions
+		actions_compute(price, commission, nil, nil)
+	end
+
+	def output
+		{ "id" => @rental_id, "actions" => actions}
+	end
+end
+
+class CarRentalPriceLevel5 < CarRentalPriceLevel3
+	def options
+		options_compute(@rental_id)
+	end
+
+	def actions
+		owner_options_amount = options[:owner_options_amount]
+		drivy_options_amount = options[:drivy_options_amount]
+		actions_compute(price, commission, owner_options_amount, drivy_options_amount)
+	end
+
+
+	def output
+		options_output = options[:options_output]
+		{ "id" => @rental_id, "options" => options_output, "actions" => actions}
+	end
+end
+
+def car_rental_price(cars, r, options, options_day_prices, crp_class)
+	crp = crp_class.new(cars, r, options, options_day_prices)
+	crp.output
+end
+
+def rental_output(f_input, f_output, f_expected_output, level, options_day_prices, crp_class)
 	begin
 		input_file = File.read(f_input)
 	rescue Exception => e
@@ -77,7 +180,9 @@ def rental_output(f_input, f_output, f_expected_output, level, options_day_price
 	options = input_data["options"]
 
 	begin
-		rentals_output = rentals_input.map {|r| car_rental_price(cars, r, options, options_day_prices)}
+		rentals_output = rentals_input.map {
+				|r| car_rental_price(cars, r, options, options_day_prices, crp_class)
+			}
 		rentals = {"rentals" => rentals_output}
 	rescue Exception => e
 		puts "Exception while processing data : " + e.message
