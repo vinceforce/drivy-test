@@ -5,23 +5,14 @@ For each level, output and expected_output are compared.
 
 ### test_all_levels.sh contents
 cd level1
-
 ruby main.rb
-
 cd ../level2
-
 ruby main.rb
-
 cd ../level3
-
 ruby main.rb
-
 cd ../level4
-
 ruby main.rb
-
 cd ../level5
-
 ruby main.rb
 
 ### Expected result
