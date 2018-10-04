@@ -1,8 +1,41 @@
 require 'json/ext'
 require 'date'
 
+class String
+	def black;          "\e[30m#{self}\e[0m" end
+	def red;            "\e[31m#{self}\e[0m" end
+	def green;          "\e[32m#{self}\e[0m" end
+	def brown;          "\e[33m#{self}\e[0m" end
+	def blue;           "\e[34m#{self}\e[0m" end
+	def magenta;        "\e[35m#{self}\e[0m" end
+	def cyan;           "\e[36m#{self}\e[0m" end
+	def gray;           "\e[37m#{self}\e[0m" end
+
+	def bg_black;       "\e[40m#{self}\e[0m" end
+	def bg_red;         "\e[41m#{self}\e[0m" end
+	def bg_green;       "\e[42m#{self}\e[0m" end
+	def bg_brown;       "\e[43m#{self}\e[0m" end
+	def bg_blue;        "\e[44m#{self}\e[0m" end
+	def bg_magenta;     "\e[45m#{self}\e[0m" end
+	def bg_cyan;        "\e[46m#{self}\e[0m" end
+	def bg_gray;        "\e[47m#{self}\e[0m" end
+
+	def bold;           "\e[1m#{self}\e[22m" end
+	def italic;         "\e[3m#{self}\e[23m" end
+	def underline;      "\e[4m#{self}\e[24m" end
+	def blink;          "\e[5m#{self}\e[25m" end
+	def reverse_color;  "\e[7m#{self}\e[27m" end
+end
+
+def puts_error(msg, e)
+	puts (msg + e.message).bold.red
+	puts e.backtrace.inspect
+end
+
 def days_number(duration, number)
 	days = (duration >= number)?duration-number:0
+rescue Exception => e
+	puts_error('CarRentalPrice - Error while computing days_number : ', e)
 end
 
 def price_days_compute(duration, price_per_day)
@@ -12,6 +45,8 @@ def price_days_compute(duration, price_per_day)
 	days_0 = duration - days_10 - days_4 - days_1
 	price_days = price_per_day * (days_0 + days_1 * 0.9 + days_4 * 0.7 + days_10 * 0.5)
 	return price_days.round(0)
+rescue Exception => e
+	puts_error('CarRentalPrice - Error while computing price_days : ', e)
 end
 
 def commission_compute(price, duration)
@@ -24,6 +59,8 @@ def commission_compute(price, duration)
 		"assistance_fee" => assistance_fee,
 		"drivy_fee" => drivy_fee
 	}
+rescue Exception => e
+	puts_error('CarRentalPrice - Error while computing commission : ', e)
 end
 
 def actions_compute(price, commission, owner_options_amount, drivy_options_amount)
@@ -56,6 +93,8 @@ def actions_compute(price, commission, owner_options_amount, drivy_options_amoun
 		"amount" => commission["drivy_fee"] + drivy_amount
 	})
 	return actions
+rescue Exception => e
+	puts_error('CarRentalPrice - Error while computing actions : ', e)
 end
 
 def options_compute(rental_id)
@@ -74,6 +113,8 @@ def options_compute(rental_id)
 		:drivy_options_amount => drivy_options_amount,
 		:options_output => options_output
 	}
+rescue Exception => e
+	puts_error('CarRentalPrice - Error while computing options : ', e)
 end
 
 class CarRentalPrice
@@ -83,25 +124,57 @@ class CarRentalPrice
 		@options = options
 		@options_day_prices = options_day_prices
 		@rental_id = @rental["id"]
-		@duration = (Date.parse(@rental["end_date"]) - Date.parse(@rental["start_date"])).to_i + 1
-		@distance = @rental["distance"].to_i
+		begin
+			@duration = (Date.parse(@rental["end_date"]) - Date.parse(@rental["start_date"])).to_i + 1
+		rescue Exception => e
+			puts_error('CarRentalPrice - Error while parsing date : ', e)
+		end
+		begin
+			@distance = @rental["distance"].to_i
+		rescue Exception => e
+			puts_error('CarRentalPrice - Error while parsing distance : ', e)
+		end
 		@car_id = @rental["car_id"]
-		@car = @cars.find {|c| c["id"] == @car_id}
-		@price_per_day = @car["price_per_day"].to_i
-		@price_per_km = @car["price_per_km"].to_i
+		begin
+			@car = @cars.find {|c| c["id"] == @car_id}
+		rescue Exception => e
+			puts_error('CarRentalPrice - Error while retrieving car : ', e)
+		end
+		begin
+			@price_per_day = @car["price_per_day"].to_i
+			if @price_per_day == 0
+				raise 'price_per_day is not available'
+			end
+		rescue Exception => e
+			puts_error('CarRentalPrice - Error while retrieving car price_per_day : ', e)
+		end
+		begin
+			@price_per_km = @car["price_per_km"].to_i
+			if @price_per_km == 0
+				raise 'price_per_km is not available'
+			end
+		rescue Exception => e
+			puts_error('CarRentalPrice - Error while retrieving car price_per_km : ', e)
+		end
 
 	end
 
 	def price_days
 		@duration * @price_per_day
+	rescue Exception => e
+		puts_error('CarRentalPrice - Error while computing price_days : ', e)
 	end
 
 	def price_distance
 		@distance * @price_per_km
+	rescue Exception => e
+		puts_error('CarRentalPrice - Error while computing price_distance : ', e)
 	end
 
 	def price
 		price_days + price_distance
+	rescue Exception => e
+		puts_error('CarRentalPrice - Error while computing price : ', e)
 	end
 
 	def output
@@ -165,14 +238,12 @@ def rental_output(f_input, f_output, f_expected_output, level, options_day_price
 	begin
 		input_file = File.read(f_input)
 	rescue Exception => e
-		puts "Exception while reading input file : " + e.message
-		puts e.backtrace.inspect
+		puts_error("Exception while reading input file : ", e)
 	end
 	begin
 		input_data = JSON.parse(input_file)
 	rescue Exception => e
-		puts "Exception while parsing input file : " + e.message
-		puts e.backtrace.inspect
+		puts_error("Exception while parsing input file : ", e)
 	end
 
 	cars = input_data["cars"]
@@ -185,32 +256,18 @@ def rental_output(f_input, f_output, f_expected_output, level, options_day_price
 			}
 		rentals = {"rentals" => rentals_output}
 	rescue Exception => e
-		puts "Exception while processing data : " + e.message
-		puts e.backtrace.inspect
+		puts_error("Exception while processing data : ", e)
 	end
 
 	begin
 		File.open(f_output, "w") {|f| f.write(JSON.pretty_generate(rentals)) }
 	rescue Exception => e
-		puts "Exception while writing output data to output file : " + e.message
-		puts e.backtrace.inspect
+		puts_error("Exception while writing output data to output file : ", e)
 	end
 
-	begin
-		expected_output_file = File.read(f_expected_output)
-	rescue Exception => e
-		puts "Exception while reading expected output file : " + e.message
-		puts e.backtrace.inspect
-	end
-	
-	begin
-		expected_output = JSON.parse(expected_output_file)
-	rescue Exception => e
-		puts "Exception while parsing expected output data : " + e.message
-		puts e.backtrace.inspect
-	end
-
-	puts "Level %{level} : test %{test}" %
-		{:level => level, :test => (rentals == expected_output) ? "ok" : "ko"}
+	puts ("*" * 55).blue
+	puts "************* Level #{level} : output generated **************".bold
+	puts ("*" * 55).blue
+	puts ("=" * 100).bold.magenta
 end
 
