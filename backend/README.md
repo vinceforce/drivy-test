@@ -21,12 +21,8 @@ ruby test.rb
 ruby main.rb
 
 ### Expected result
-Level 1 : test ok
-
-Level 2 : test ok
-
-Level 3 : test ok
-
-Level 4 : test ok
-
+Level 1 : test ok  
+Level 2 : test ok  
+Level 3 : test ok  
+Level 4 : test ok  
 Level 5 : test ok
