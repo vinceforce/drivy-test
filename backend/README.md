@@ -4,15 +4,20 @@ You can use ./test_all_levels.sh (after running sudo chmod +x test_all_levels.sh
 For each level, output and expected_output are compared.
 
 ### test_all_levels.sh contents
-cd level1
-ruby main.rb
-cd ../level2
-ruby main.rb
-cd ../level3
-ruby main.rb
-cd ../level4
-ruby main.rb
-cd ../level5
+cd level1  
+ruby test.rb  
+ruby main.rb  
+cd ../level2  
+ruby test.rb  
+ruby main.rb  
+cd ../level3  
+ruby test.rb  
+ruby main.rb  
+cd ../level4  
+ruby test.rb  
+ruby main.rb  
+cd ../level5  
+ruby test.rb  
 ruby main.rb
 
 ### Expected result
